@@ -167,20 +167,27 @@
       var d2 = CP.hueDelta(rAng, S.hue);       /* 参照 → 当前，取最短方向 */
 
       ctx.beginPath();
-      ctx.arc(half, half, half * (RING_IN - 0.045),
+      ctx.arc(half, half, half * (RING_IN - 0.02),
         -rAng * Math.PI / 180, -(rAng + d2) * Math.PI / 180, d2 > 0);
-      ctx.strokeStyle = 'rgba(255,255,255,.55)';
-      ctx.lineWidth = 3 * k;
+      ctx.strokeStyle = 'rgba(255,255,255,.5)';
+      ctx.lineWidth = 2.5 * k;
       ctx.stroke();
 
-      var R = toXY(rAng, RING_MID, half);
+      /* 参照用三角形指针，和当前色的圆点区分开 */
+      var aRad = rAng * Math.PI / 180;
+      var ux = Math.cos(aRad), uy = -Math.sin(aRad);
+      var tipP = toXY(rAng, RING_IN - 0.035, half);
+      var baseP = toXY(rAng, RING_IN - 0.09, half);
+      var wHalf = 6 * k;
       ctx.beginPath();
-      ctx.arc(R[0], R[1], 9 * k, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0,0,0,.6)';
-      ctx.lineWidth = 5 * k;
-      ctx.stroke();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2 * k;
+      ctx.moveTo(tipP[0], tipP[1]);
+      ctx.lineTo(baseP[0] - uy * wHalf, baseP[1] + ux * wHalf);
+      ctx.lineTo(baseP[0] + uy * wHalf, baseP[1] - ux * wHalf);
+      ctx.closePath();
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.65)';
+      ctx.lineWidth = 1.8 * k;
       ctx.stroke();
     }
 
@@ -686,12 +693,11 @@
   }
 
   /* ------------------------------------------------------------ 持久化 */
+  /* 只记住「上一次用的是哪个环」。图片和色卡按需求不自动恢复，
+   * 要留存请用「保存」写进历史记录。 */
   function persist() {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({
-        mode: S.mode, hue: S.hue, sat: S.sat, bright: S.bright,
-        items: S.items, ref: S.ref, seq: S.seq
-      }));
+      localStorage.setItem(STORE_KEY, JSON.stringify({ mode: S.mode }));
     } catch (e) { /* 隐私模式等，忽略 */ }
   }
 
@@ -701,22 +707,6 @@
       if (!raw) return;
       var d = JSON.parse(raw);
       if (d.mode === 'light' || d.mode === 'pigment') S.mode = d.mode;
-      if (typeof d.hue === 'number') S.hue = d.hue;
-      if (typeof d.sat === 'number') S.sat = d.sat;
-      if (typeof d.bright === 'number') S.bright = d.bright;
-      if (Array.isArray(d.items)) S.items = d.items;
-      if (d.ref && Array.isArray(d.ref.rgb)) {
-        S.ref = { rgb: d.ref.rgb, name: d.ref.name || '参照色', id: d.ref.id || null };
-      } else if (d.refId) {
-        /* 旧版本只存了 refId，迁移过来 */
-        for (var i = 0; i < S.items.length; i++) {
-          if (S.items[i].id === d.refId) {
-            S.ref = { rgb: S.items[i].rgb, name: S.items[i].name, id: S.items[i].id };
-            break;
-          }
-        }
-      }
-      S.seq = d.seq || (S.items.length + 1);
     } catch (e) { /* ignore */ }
   }
 
@@ -735,6 +725,7 @@
   function refresh() {
     updateTracks();
     syncSliders();
+    renderRefTicks();
     requestDraw();
     renderReadout();
     renderCompare();
@@ -803,6 +794,227 @@
       }
     }
     ImageView.setMarks(marks);
+  }
+
+  /* ------------------------------------------------------- 参照刻度 */
+  function renderRefTicks() {
+    var satTick = document.getElementById('satRef');
+    var briTick = document.getElementById('briRef');
+    if (!satTick || !briTick) return;
+    var rc = refRgb();
+    if (!rc) {
+      satTick.hidden = true;
+      briTick.hidden = true;
+      return;
+    }
+    var h = CP.rgb2hsv(rc);
+    satTick.hidden = false;
+    briTick.hidden = false;
+    /* 滑块中心在 12px + (宽度-24px)*值 处，跟 range 的默认几何对上 */
+    satTick.style.left = 'calc(12px + (100% - 24px) * ' + h.s.toFixed(4) + ')';
+    briTick.style.left = 'calc(12px + (100% - 24px) * ' + h.v.toFixed(4) + ')';
+  }
+
+  /* ------------------------------------------------------------ 提示条 */
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.classList.remove('show'); }, 1900);
+  }
+
+  /* ------------------------------------------------------------ 历史 */
+  var HIST_KEY = 'colorpick.history.v1';
+  var HIST_MAX = 40;
+
+  function loadHistory() {
+    try {
+      var raw = localStorage.getItem(HIST_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function storeHistory(arr) {
+    localStorage.setItem(HIST_KEY, JSON.stringify(arr));
+  }
+
+  function fmtTime(ts) {
+    var d = new Date(ts);
+    function p(n) { return n < 10 ? '0' + n : '' + n; }
+    return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function saveSnapshot() {
+    var imgs = [];
+    try {
+      imgs = ImageView.snapshot(1600, 0.78);
+    } catch (e) {
+      imgs = [];
+    }
+    var snap = {
+      id: 's' + Date.now(),
+      at: Date.now(),
+      mode: S.mode,
+      hue: S.hue, sat: S.sat, bright: S.bright,
+      ref: S.ref ? { rgb: S.ref.rgb.slice(), name: S.ref.name, id: S.ref.id || null } : null,
+      palette: S.items.map(function (it) {
+        return {
+          id: it.id, name: it.name, rgb: it.rgb.slice(),
+          src: it.src ? { img: it.src.img, x: it.src.x, y: it.src.y } : null
+        };
+      }),
+      images: imgs
+    };
+    var list = loadHistory();
+    list.unshift(snap);
+    if (list.length > HIST_MAX) list.length = HIST_MAX;
+    try {
+      storeHistory(list);
+      toast('已保存：' + snap.palette.length + ' 色 · ' + imgs.length + ' 图');
+      return true;
+    } catch (e) {
+      toast('存储空间不足，删几条历史再试');
+      return false;
+    }
+  }
+
+  function renderHistory() {
+    var host = document.getElementById('histList');
+    if (!host) return;
+    var list = loadHistory();
+    host.innerHTML = '';
+    if (!list.length) {
+      var e = document.createElement('div');
+      e.className = 'ref-empty';
+      e.textContent = '还没有保存过。点下面的「保存当前」把现在的图片和色卡存下来。';
+      host.appendChild(e);
+      return;
+    }
+    list.forEach(function (snap) {
+      var row = document.createElement('div');
+      row.className = 'hist-row';
+
+      var th = document.createElement('div');
+      th.className = 'hist-thumb';
+      if (snap.images && snap.images.length) {
+        var im = document.createElement('img');
+        im.src = snap.images[0].dataUrl;
+        th.appendChild(im);
+      }
+
+      var info = document.createElement('div');
+      info.className = 'hist-info';
+      var t = document.createElement('div');
+      t.className = 'hist-time';
+      t.textContent = fmtTime(snap.at);
+      var sub = document.createElement('div');
+      sub.className = 'hist-sub';
+      sub.textContent = (snap.palette ? snap.palette.length : 0) + ' 色 · ' +
+        (snap.images ? snap.images.length : 0) + ' 图';
+      info.appendChild(t);
+      info.appendChild(sub);
+
+      var load = document.createElement('button');
+      load.className = 'ghost-btn mini';
+      load.textContent = '恢复';
+      load.addEventListener('click', function () { restoreSnapshot(snap.id); });
+
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '×';
+      del.addEventListener('click', function () {
+        var arr = loadHistory().filter(function (x) { return x.id !== snap.id; });
+        try { storeHistory(arr); } catch (e2) { /* ignore */ }
+        renderHistory();
+      });
+
+      row.appendChild(th);
+      row.appendChild(info);
+      row.appendChild(load);
+      row.appendChild(del);
+      host.appendChild(row);
+    });
+  }
+
+  function restoreSnapshot(id) {
+    var snap = loadHistory().filter(function (s) { return s.id === id; })[0];
+    if (!snap) return;
+    closeHistSheet();
+
+    ImageView.clear();
+    S.items = (snap.palette || []).map(function (it) {
+      return {
+        id: it.id, name: it.name, rgb: it.rgb.slice(),
+        src: it.src || undefined
+      };
+    });
+    S.ref = snap.ref
+      ? { rgb: snap.ref.rgb.slice(), name: snap.ref.name, id: snap.ref.id || null }
+      : null;
+    S.mode = snap.mode === 'pigment' ? 'pigment' : 'light';
+    if (typeof snap.hue === 'number') S.hue = snap.hue;
+    if (typeof snap.sat === 'number') S.sat = snap.sat;
+    if (typeof snap.bright === 'number') S.bright = snap.bright;
+
+    S.seq = 1 + S.items.reduce(function (mx, it) {
+      var n = parseInt(String(it.id).replace(/[^0-9]/g, ''), 10);
+      return isNaN(n) ? mx : Math.max(mx, n);
+    }, 0);
+
+    applyModeUI();
+    renderList();
+
+    var imgs = snap.images || [];
+    var i = 0;
+    (function next() {
+      if (i >= imgs.length) { refresh(); return; }
+      var im = imgs[i++];
+      ImageView.addDataUrl(im.dataUrl, im.name).then(next, next);
+    })();
+
+    refresh();
+    toast('已恢复 ' + fmtTime(snap.at));
+  }
+
+  function openHistSheet() {
+    renderHistory();
+    var sheet = document.getElementById('histSheet');
+    sheet.hidden = false;
+    requestAnimationFrame(function () { sheet.classList.add('show'); });
+  }
+
+  function closeHistSheet() {
+    var sheet = document.getElementById('histSheet');
+    if (sheet.hidden) return;
+    sheet.classList.remove('show');
+    setTimeout(function () { sheet.hidden = true; }, 180);
+  }
+
+  function bindHistory() {
+    document.getElementById('saveBtn').addEventListener('click', function () {
+      saveSnapshot();
+    });
+    document.getElementById('histBtn').addEventListener('click', openHistSheet);
+    document.getElementById('histClose').addEventListener('click', closeHistSheet);
+    document.getElementById('histMask').addEventListener('click', closeHistSheet);
+    document.getElementById('saveNow').addEventListener('click', function () {
+      if (saveSnapshot()) renderHistory();
+    });
+  }
+
+  function applyModeUI() {
+    Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (x) {
+      x.classList.toggle('on', x.dataset.mode === S.mode);
+    });
   }
 
   /* ------------------------------------------------------- 视图切换 */
@@ -898,6 +1110,12 @@
 
     document.getElementById('resetImg').addEventListener('click', function () {
       ImageView.reset();
+    });
+
+    var loupeBtn = document.getElementById('loupeBtn');
+    loupeBtn.addEventListener('click', function () {
+      var on = ImageView.setLoupeMode(!loupeBtn.classList.contains('on'));
+      loupeBtn.classList.toggle('on', on);
     });
 
     var samples = document.querySelectorAll('.sm');
@@ -1060,10 +1278,8 @@
     bindSliders();
     bindImageView();
     bindRefSheet();
-
-    Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (x) {
-      x.classList.toggle('on', x.dataset.mode === S.mode);
-    });
+    bindHistory();
+    applyModeUI();
 
     if (S.hexParam) {
       setFromColor({

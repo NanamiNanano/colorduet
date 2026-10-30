@@ -117,6 +117,58 @@ header {
   white-space: nowrap;
 }
 
+.range-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.range-wrap input[type=range] { width: 100%; }
+
+/* 参照色在滑杆上的位置：一根细白柱 */
+.ref-tick {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 22px;
+  margin-top: -11px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, .55);
+  pointer-events: none;
+}
+
+.ghost-btn.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 12px);
+  background: rgba(38, 42, 49, .96);
+  color: var(--fg);
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+  z-index: 30;
+  white-space: nowrap;
+}
+
+#toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 input[type=range] {
   -webkit-appearance: none;
   appearance: none;
@@ -267,7 +319,13 @@ summary {
   margin: 6px 2px 8px;
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
+}
+
+.h2-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .palette h2 small {

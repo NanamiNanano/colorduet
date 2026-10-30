@@ -22,7 +22,8 @@
     active: -1,
     sample: 1,
     marks: [],                // 由外部传入：色卡里记录下来的取色点
-    flash: null               // 刚点一下的短暂反馈
+    flash: null,              // 刚点一下的短暂反馈
+    loupeMode: false          // 精调模式：放大镜常驻，不依赖长按
   };
   var imgSeq = 0;
 
@@ -288,20 +289,45 @@
     var it = cur();
     drag = { x: e.clientX, y: e.clientY, ox: it.view.ox, oy: it.view.oy, moved: 0 };
 
+    /* 精调模式：按下即定位放大镜，可以按住拖着微调 */
+    if (st.loupeMode) {
+      var p0 = toImage(e.clientX, e.clientY);
+      if (p0) {
+        loupe = clampToImage(p0, it);
+        previewLoupe();
+        draw();
+      }
+      return;
+    }
+
     cancelLong();
     longTimer = setTimeout(function () {
       longTimer = null;
       if (!drag || drag.moved > TAP_MOVE) return;
       var p = toImage(drag.x, drag.y);
       if (!p) return;
-      loupe = { x: p.x, y: p.y };
+      loupe = clampToImage(p, cur());
       emitHint('松手确认取色');
-      var c = sampleColor(loupe.x, loupe.y, st.sample);
-      if (c && opts.onPick) opts.onPick(c);
+      previewLoupe();
       draw();
     }, LONG_PRESS);
 
     e.preventDefault();
+  }
+
+  function clampToImage(p, it) {
+    return {
+      x: Math.max(0, Math.min(it.iw - 1, p.x)),
+      y: Math.max(0, Math.min(it.ih - 1, p.y))
+    };
+  }
+
+  function previewLoupe() {
+    var c = sampleColor(loupe.x, loupe.y, st.sample);
+    if (c && opts.onPick) {
+      var it = cur();
+      opts.onPick(c, { img: it.id, x: loupe.x, y: loupe.y });
+    }
   }
 
   function onMove(e) {
@@ -332,10 +358,8 @@
     if (loupe) {
       var p0 = toImage(e.clientX, e.clientY);
       if (p0) {
-        loupe.x = Math.max(0, Math.min(it.iw - 1, p0.x));
-        loupe.y = Math.max(0, Math.min(it.ih - 1, p0.y));
-        var c0 = sampleColor(loupe.x, loupe.y, st.sample);
-        if (c0 && opts.onPick) opts.onPick(c0);
+        loupe = clampToImage(p0, it);
+        previewLoupe();
         draw();
       }
       e.preventDefault();
@@ -369,8 +393,10 @@
 
     if (loupe) {
       pickAt(loupe.x, loupe.y, false);
-      loupe = null;
-      emitHint(OPTS_HINT);
+      if (!st.loupeMode) {
+        loupe = null;
+        emitHint(OPTS_HINT);
+      }
       draw();
       drag = null;
       return;
@@ -475,6 +501,58 @@
     draw();
   }
 
+  /* 精调模式：放大镜常驻，不依赖长按（安卓上长按容易被系统手势吃掉） */
+  function setLoupeMode(on) {
+    st.loupeMode = !!on;
+    if (!st.loupeMode) {
+      loupe = null;
+      emitHint(OPTS_HINT);
+    } else {
+      var it = cur();
+      if (it) {
+        /* 只把放大镜摆到图中央，不立刻改当前色 */
+        loupe = { x: Math.round(it.iw / 2), y: Math.round(it.ih / 2) };
+      }
+      emitHint('点图片定位，可按住拖动微调；再点「精调」退出');
+    }
+    draw();
+    return st.loupeMode;
+  }
+
+  /* 供历史记录用：把当前所有图压缩成 JPEG dataURL */
+  function snapshot(maxPx, quality) {
+    maxPx = maxPx || 1600;
+    quality = quality || 0.78;
+    var out = [];
+    for (var i = 0; i < st.items.length; i++) {
+      var it = st.items[i];
+      var nw = it.img.naturalWidth || it.img.width;
+      var nh = it.img.naturalHeight || it.img.height;
+      var k = Math.min(1, maxPx / Math.max(nw, nh));
+      var w = Math.max(1, Math.round(nw * k));
+      var h = Math.max(1, Math.round(nh * k));
+      var c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      var cx = c.getContext('2d');
+      cx.fillStyle = '#ffffff';
+      cx.fillRect(0, 0, w, h);           // JPEG 没有透明通道，先铺白底
+      cx.drawImage(it.img, 0, 0, w, h);
+      out.push({ name: it.name, w: w, h: h, dataUrl: c.toDataURL('image/jpeg', quality) });
+    }
+    return out;
+  }
+
+  function clear() {
+    st.items = [];
+    st.active = -1;
+    st.marks = [];
+    st.flash = null;
+    data = null;
+    draw();
+    if (opts.onChange) opts.onChange(-1);
+  }
+
   /* 外部（app.js）根据色卡给它要显示的取色点 */
   function setMarks(arr) {
     st.marks = arr || [];
@@ -515,7 +593,10 @@
     addDataUrl: addDataUrl,
     setActive: setActive,
     setSample: setSample,
+    setLoupeMode: setLoupeMode,
     setMarks: setMarks,
+    snapshot: snapshot,
+    clear: clear,
     reset: reset,
     resize: resize,
     pickNorm: pickNorm,

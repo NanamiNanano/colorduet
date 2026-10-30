@@ -32,13 +32,19 @@
 
     <div class="slider-row">
       <label for="sat">饱和度</label>
-      <input type="range" id="sat" min="0" max="100" value="66">
+      <div class="range-wrap">
+        <input type="range" id="sat" min="0" max="100" value="66">
+        <span class="ref-tick" id="satRef" hidden></span>
+      </div>
       <span id="satVal">66%</span>
     </div>
 
     <div class="slider-row">
       <label for="bright">明度</label>
-      <input type="range" id="bright" min="0" max="100" value="100">
+      <div class="range-wrap">
+        <input type="range" id="bright" min="0" max="100" value="100">
+        <span class="ref-tick" id="briRef" hidden></span>
+      </div>
       <span id="brightVal">100%</span>
     </div>
   </section>
@@ -60,6 +66,7 @@
 
     <div class="imgbar">
       <span id="imgHint">点击取色 · 长按放大镜 · 双指缩放 · 双击复位</span>
+      <button class="ghost-btn mini" id="loupeBtn">精调</button>
       <button class="ghost-btn mini" id="resetImg">复位</button>
     </div>
 
@@ -87,7 +94,13 @@
 
   <!-- ---------------------------------------------------------- 色卡 -->
   <section class="palette">
-    <h2><span>色卡</span><small>点色块设参照 · 拖动 ⠿ 排序 · 双击名字改名</small></h2>
+    <h2>
+      <span>色卡</span>
+      <span class="h2-actions">
+        <button class="ghost-btn mini" id="saveBtn">保存</button>
+        <button class="ghost-btn mini" id="histBtn">历史</button>
+      </span>
+    </h2>
     <ul id="list"></ul>
     <div class="empty-tip" id="emptyTip">还没有颜色。在环上选一个，或从图片取一个，然后点「加入色卡」。</div>
   </section>
@@ -123,6 +136,21 @@
 
       <div class="sheet-actions">
         <button class="ghost-btn" id="refClear">取消参照</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------ 历史记录 -->
+  <div class="sheet" id="histSheet" hidden>
+    <div class="sheet-mask" id="histMask"></div>
+    <div class="sheet-body">
+      <div class="sheet-head">
+        <span>历史记录</span>
+        <button class="sheet-x" id="histClose" aria-label="关闭">×</button>
+      </div>
+      <div class="hist-list" id="histList"></div>
+      <div class="sheet-actions">
+        <button class="ghost-btn" id="saveNow">保存当前</button>
       </div>
     </div>
   </div>

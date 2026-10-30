@@ -133,3 +133,53 @@
 .sheet-actions { display: flex; gap: 10px; }
 
 .sheet-actions .ghost-btn { flex: 1; }
+
+/* ------------------------------------------------------------ 历史记录 */
+.hist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel2);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.hist-thumb {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #101216;
+}
+
+.hist-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hist-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hist-time {
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-sub {
+  font-size: 11.5px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
