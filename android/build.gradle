@@ -1,0 +1,5 @@
+// 版本组合照抄 e2046 项目（已验证能出包）：
+//   AGP 8.7.3 + Gradle 8.9 + JDK 17 + compileSdk 35
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
+}

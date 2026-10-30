@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.colorduet.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.colorduet.app"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "0.1.0"
+        // 只打 arm64：现代手机都是 64 位，包体小一半
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    // 固定签名。GitHub Actions 每次都是全新机器，若不固定 key，
+    // 每个包的签名都不同 → 手机覆盖安装会报"签名不一致"，只能卸载重装（数据全丢）。
+    // 自用项目把 keystore 放仓库里是刻意的取舍。
+    signingConfigs {
+        stable {
+            storeFile file("colorduet.jks")
+            storePassword "colorduet"
+            keyAlias "colorduet"
+            keyPassword "colorduet"
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.stable
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.stable
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+dependencies {
+    // 纯 WebView 壳，不引第三方库
+}
