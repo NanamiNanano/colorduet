@@ -18,7 +18,7 @@
   var TAP_MOVE = 8;           // 超过这个位移就不算点击
 
   var st = {
-    items: [],                // {img, name, thumb, iw, ih, view:{s,ox,oy}, picks:[]}
+    items: [],                // {img, name, thumb, iw, ih, view:{s,ox,oy}, pick}
     active: -1,
     sample: 1
   };
@@ -119,9 +119,8 @@
     if (!c) return;
     if (opts.onPick) opts.onPick(c);
     if (!silent) {
-      var it = cur();
-      it.picks.push({ x: ix, y: iy });
-      if (it.picks.length > 24) it.picks.shift();
+      /* 只保留最近一次的落点，不累积 */
+      cur().pick = { x: ix, y: iy };
       draw();
     }
   }
@@ -149,17 +148,16 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(it.img, v.ox, v.oy, it.iw * v.s, it.ih * v.s);
 
-    /* 已取色的标记 */
-    for (var i = 0; i < it.picks.length; i++) {
-      var p = it.picks[i];
-      var px = v.ox + p.x * v.s, py = v.oy + p.y * v.s;
+    /* 最近一次取色的落点 */
+    if (it.pick) {
+      var pcx = v.ox + it.pick.x * v.s, pcy = v.oy + it.pick.y * v.s;
       ctx.beginPath();
-      ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+      ctx.arc(pcx, pcy, 6, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(0,0,0,.55)';
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 4;
       ctx.stroke();
       ctx.strokeStyle = 'rgba(255,255,255,.95)';
-      ctx.lineWidth = 1.6;
+      ctx.lineWidth = 1.8;
       ctx.stroke();
     }
 
@@ -405,7 +403,7 @@
         st.items.push({
           img: img, name: name || ('图片 ' + (st.items.length + 1)),
           thumb: makeThumb(img), iw: dim.iw, ih: dim.ih,
-          view: { s: 1, ox: 0, oy: 0 }, picks: []
+          view: { s: 1, ox: 0, oy: 0 }, pick: null
         });
         st.active = st.items.length - 1;
         var it = cur();

@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#16181c">
 <title>双环取色</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="sheet.css">
 </head>
 <body>
 <div id="app">
@@ -90,6 +91,41 @@
     <ul id="list"></ul>
     <div class="empty-tip" id="emptyTip">还没有颜色。在环上选一个，或从图片取一个，然后点「加入色卡」。</div>
   </section>
+
+  <!-- ------------------------------------------------------ 参照色选择 -->
+  <div class="sheet" id="refSheet" hidden>
+    <div class="sheet-mask" id="refMask"></div>
+    <div class="sheet-body">
+      <div class="sheet-head">
+        <span>选择参照色</span>
+        <button class="sheet-x" id="refClose" aria-label="关闭">×</button>
+      </div>
+
+      <div class="sheet-sec">
+        <div class="sheet-label">我的色卡</div>
+        <div class="ref-grid" id="refPalette"></div>
+      </div>
+
+      <div class="sheet-sec">
+        <div class="sheet-label">预设</div>
+        <div class="ref-grid" id="refPresets"></div>
+      </div>
+
+      <div class="sheet-sec">
+        <div class="sheet-label">输入颜色</div>
+        <div class="ref-input">
+          <input id="refInput" type="text" placeholder="#FF8800  或  255,136,0"
+                 autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button id="refApply">用这个</button>
+        </div>
+        <div class="ref-err" id="refErr"></div>
+      </div>
+
+      <div class="sheet-actions">
+        <button class="ghost-btn" id="refClear">取消参照</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 

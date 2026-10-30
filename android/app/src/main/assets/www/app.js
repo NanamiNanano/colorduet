@@ -161,9 +161,8 @@
     }
 
     /* 参照标记 + 色相夹角弧线 */
-    var ref = refItem();
-    if (ref) {
-      var rc = { r: ref.rgb[0] / 255, g: ref.rgb[1] / 255, b: ref.rgb[2] / 255 };
+    var rc = refRgb();
+    if (rc) {
       var rAng = ringAngleOf(rc);
       var d2 = CP.hueDelta(rAng, S.hue);       /* 参照 → 当前，取最短方向 */
 
@@ -290,12 +289,11 @@
     box.innerHTML = '';
     hint.textContent = '';
 
-    var ref = refItem();
-    if (!ref) {
-      hint.textContent = '点色卡里的色块把它设为参照，就能看到「差多少」。';
+    var rc = refRgb();
+    if (!rc) {
+      hint.textContent = '点下方的「参照」色块，可以选一个参照色来比对。';
       return;
     }
-    var rc = { r: ref.rgb[0] / 255, g: ref.rgb[1] / 255, b: ref.rgb[2] / 255 };
     var m = compare(current(), rc);
 
     /* 色相 */
@@ -327,8 +325,6 @@
       hint.textContent = '色相接近，但整体差异明显 —— 多半是明度或彩度差太多。';
     } else if (hueBad && vt === 'ok') {
       hint.textContent = '色相角差看起来大，但肉眼接近 —— HSV 在这个色区比较敏感。';
-    } else if (vt === 'ok' && vl === 'ok' && vc === 'ok') {
-      hint.textContent = '与参照几乎一致。';
     }
   }
 
@@ -349,18 +345,19 @@
     curSw.style.background = CP.hex(c);
     curHex.textContent = CP.hex(c).toUpperCase();
 
-    var ref = refItem();
     var refSw = document.getElementById('refSw');
     var refHex = document.getElementById('refHex');
-    if (ref) {
-      var rc = { r: ref.rgb[0] / 255, g: ref.rgb[1] / 255, b: ref.rgb[2] / 255 };
+    var rc = refRgb();
+    if (rc) {
       refSw.className = 'sw ref';
       refSw.style.background = CP.hex(rc);
-      refHex.textContent = ref.name + ' ' + CP.hex(rc).toUpperCase();
+      refHex.textContent = (S.ref.name || '参照') + ' ' + CP.hex(rc).toUpperCase();
+      refSw.title = '点一下取消参照';
     } else {
       refSw.className = 'sw empty';
       refSw.style.background = '';
-      refHex.textContent = '未设参照';
+      refHex.textContent = '选择参照色';
+      refSw.title = '点一下选参照色';
     }
 
     /* 详情 */
@@ -402,12 +399,26 @@
   }
 
   /* ------------------------------------------------------------ 色卡 */
-  function refItem() {
-    if (!S.refId) return null;
-    for (var i = 0; i < S.items.length; i++) {
-      if (S.items[i].id === S.refId) return S.items[i];
-    }
-    return null;
+  /* 参照色：可以是色卡里的一项，也可以是预设色或手输的颜色。
+   * S.ref = { rgb:[r,g,b] 0-255, name, id? }，id 只在该色来自色卡时才有。 */
+  function refRgb() {
+    if (!S.ref) return null;
+    var c = S.ref.rgb;
+    return { r: c[0] / 255, g: c[1] / 255, b: c[2] / 255 };
+  }
+
+  function setRef(rgb255, name, id) {
+    S.ref = { rgb: rgb255.slice(0, 3), name: name || '参照色', id: id || null };
+    persist();
+    renderList();
+    refresh();
+  }
+
+  function clearRef() {
+    S.ref = null;
+    persist();
+    renderList();
+    refresh();
   }
 
   var lastDeleted = null;
@@ -420,7 +431,7 @@
 
     S.items.forEach(function (it, idx) {
       var li = document.createElement('li');
-      li.className = 'item' + (it.id === S.refId ? ' ref' : '');
+      li.className = 'item' + (S.ref && S.ref.id === it.id ? ' ref' : '');
       li.dataset.id = it.id;
 
       var handle = document.createElement('span');
@@ -478,7 +489,7 @@
           (tri2[1] * h.s * 100).toFixed(0) + '/' + (tri2[2] * h.s * 100).toFixed(0));
       }
     }
-    if (S.refId && it.id === S.refId) parts.push('参照');
+    if (S.ref && S.ref.id === it.id) parts.push('参照');
     return parts.join(' · ');
   }
 
@@ -569,7 +580,7 @@
       var idx = S.items.findIndex(function (x) { return x.id === id; });
       if (idx < 0) return;
       lastDeleted = { item: S.items[idx], index: idx };
-      if (S.refId === id) S.refId = null;
+      if (S.ref && S.ref.id === id) S.ref = null;
       S.items.splice(idx, 1);
       persist();
       renderList();
@@ -580,10 +591,13 @@
 
     if (e.target.dataset.act === 'ref' || e.target === li ||
       e.target.classList.contains('meta') || e.target.classList.contains('body')) {
-      S.refId = (S.refId === id) ? null : id;
-      persist();
-      renderList();
-      refresh();
+      var it = S.items.find(function (x) { return x.id === id; });
+      if (!it) return;
+      if (S.ref && S.ref.id === id) {
+        clearRef();
+      } else {
+        setRef(it.rgb, it.name, it.id);
+      }
     }
   });
 
@@ -633,7 +647,6 @@
       rgb: rgb
     };
     S.items.push(item);
-    if (!S.refId && S.items.length > 1) S.refId = S.items[0].id;
     persist();
     renderList();
     refresh();
@@ -678,7 +691,7 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         mode: S.mode, hue: S.hue, sat: S.sat, bright: S.bright,
-        items: S.items, refId: S.refId, seq: S.seq
+        items: S.items, ref: S.ref, seq: S.seq
       }));
     } catch (e) { /* 隐私模式等，忽略 */ }
   }
@@ -693,24 +706,45 @@
       if (typeof d.sat === 'number') S.sat = d.sat;
       if (typeof d.bright === 'number') S.bright = d.bright;
       if (Array.isArray(d.items)) S.items = d.items;
-      S.refId = d.refId || null;
+      if (d.ref && Array.isArray(d.ref.rgb)) {
+        S.ref = { rgb: d.ref.rgb, name: d.ref.name || '参照色', id: d.ref.id || null };
+      } else if (d.refId) {
+        /* 旧版本只存了 refId，迁移过来 */
+        for (var i = 0; i < S.items.length; i++) {
+          if (S.items[i].id === d.refId) {
+            S.ref = { rgb: S.items[i].rgb, name: S.items[i].name, id: S.items[i].id };
+            break;
+          }
+        }
+      }
       S.seq = d.seq || (S.items.length + 1);
     } catch (e) { /* ignore */ }
+  }
+
+  /* 把两条滑杆的滑块/文字同步到状态（图片取色后必须做，否则滑块不动） */
+  function syncSliders() {
+    var satEl = document.getElementById('sat');
+    var briEl = document.getElementById('bright');
+    if (!satEl || !briEl) return;
+    satEl.value = String(Math.round(S.sat * 100));
+    briEl.value = String(Math.round(S.bright * 100));
+    document.getElementById('satVal').textContent = satEl.value + '%';
+    document.getElementById('brightVal').textContent = briEl.value + '%';
   }
 
   /* ------------------------------------------------------------ 刷新 */
   function refresh() {
     updateTracks();
+    syncSliders();
     requestDraw();
     renderReadout();
     renderCompare();
-    if (!S.items.length && S.refId) S.refId = null;
     var list = document.getElementById('list');
     /* 只更新 meta 文案，避免整表重建导致输入框失焦 */
     Array.prototype.forEach.call(list.children, function (li) {
       var it = S.items.find(function (x) { return x.id === li.dataset.id; });
       if (!it) return;
-      li.classList.toggle('ref', it.id === S.refId);
+      li.classList.toggle('ref', !!(S.ref && S.ref.id === it.id));
       var meta = li.querySelector('.meta');
       if (meta) meta.textContent = metaText(it);
     });
@@ -873,6 +907,120 @@
     return c.toDataURL('image/png');
   }
 
+  /* ------------------------------------------------------- 参照选择 */
+  var PRESETS = [
+    ['红', [255, 0, 0]], ['橙', [255, 122, 0]], ['黄', [255, 212, 0]],
+    ['绿', [0, 176, 80]], ['青', [0, 191, 208]], ['蓝', [0, 87, 217]],
+    ['紫', [122, 63, 217]], ['品红', [229, 0, 125]],
+    ['黑', [0, 0, 0]], ['白', [255, 255, 255]], ['灰', [128, 128, 128]]
+  ];
+
+  function parseColorInput(s) {
+    s = (s || '').trim();
+    if (!s) return null;
+    var m = s.match(/^#?([0-9a-f]{6})$/i);
+    if (m) {
+      var h = m[1];
+      return [parseInt(h.slice(0, 2), 16),
+        parseInt(h.slice(2, 4), 16),
+        parseInt(h.slice(4, 6), 16)];
+    }
+    m = s.match(/^(?:rgb\s*\(\s*)?(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*\)?$/i);
+    if (m) {
+      var v = [Number(m[1]), Number(m[2]), Number(m[3])];
+      if (v[0] <= 255 && v[1] <= 255 && v[2] <= 255) return v;
+    }
+    return null;
+  }
+
+  function sameRgb(a, b) {
+    return !!a && !!b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+  }
+
+  function refChip(rgb, name, id) {
+    var b = document.createElement('button');
+    b.className = 'ref-chip' + (S.ref && sameRgb(S.ref.rgb, rgb) ? ' on' : '');
+    b.style.background = CP.hex({ r: rgb[0] / 255, g: rgb[1] / 255, b: rgb[2] / 255 });
+    b.title = name || '';
+    b.addEventListener('click', function () {
+      setRef(rgb, name, id);
+      closeRefSheet();
+    });
+    return b;
+  }
+
+  function renderRefSheet() {
+    var pal = document.getElementById('refPalette');
+    pal.innerHTML = '';
+    if (!S.items.length) {
+      var d = document.createElement('div');
+      d.className = 'ref-empty';
+      d.textContent = '还没有色卡，先从下面挑一个预设';
+      pal.appendChild(d);
+    } else {
+      S.items.forEach(function (it) {
+        pal.appendChild(refChip(it.rgb, it.name, it.id));
+      });
+    }
+
+    var pre = document.getElementById('refPresets');
+    pre.innerHTML = '';
+    PRESETS.forEach(function (p) {
+      pre.appendChild(refChip(p[1], p[0], null));
+    });
+  }
+
+  function openRefSheet() {
+    var sheet = document.getElementById('refSheet');
+    renderRefSheet();
+    document.getElementById('refErr').textContent = '';
+    sheet.hidden = false;
+    requestAnimationFrame(function () { sheet.classList.add('show'); });
+  }
+
+  function closeRefSheet() {
+    var sheet = document.getElementById('refSheet');
+    if (sheet.hidden) return;
+    sheet.classList.remove('show');
+    setTimeout(function () { sheet.hidden = true; }, 180);
+  }
+
+  function bindRefSheet() {
+    document.getElementById('refSw').addEventListener('click', function () {
+      if (S.ref) { clearRef(); return; }
+      openRefSheet();
+    });
+
+    document.getElementById('refClose').addEventListener('click', closeRefSheet);
+    document.getElementById('refMask').addEventListener('click', closeRefSheet);
+
+    document.getElementById('refClear').addEventListener('click', function () {
+      clearRef();
+      closeRefSheet();
+    });
+
+    var input = document.getElementById('refInput');
+    var err = document.getElementById('refErr');
+
+    function apply() {
+      var v = parseColorInput(input.value);
+      if (!v) {
+        err.textContent = '格式不对，试试 #FF8800 或 255,136,0';
+        return;
+      }
+      err.textContent = '';
+      input.value = '';
+      setRef(v, CP.hex({ r: v[0] / 255, g: v[1] / 255, b: v[2] / 255 }).toUpperCase(), null);
+      closeRefSheet();
+    }
+
+    document.getElementById('refApply').addEventListener('click', apply);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); apply(); }
+    });
+    input.addEventListener('input', function () { err.textContent = ''; });
+  }
+
   /* ------------------------------------------------------------ 启动 */
   function init() {
     restore();
@@ -881,6 +1029,7 @@
     bindModes();
     bindSliders();
     bindImageView();
+    bindRefSheet();
 
     Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (x) {
       x.classList.toggle('on', x.dataset.mode === S.mode);
@@ -922,7 +1071,10 @@
     }
 
     /* 首次布局完成后再画，避免尺寸为 0 */
-    requestAnimationFrame(function () { requestDraw(); });
+    requestAnimationFrame(function () {
+      requestDraw();
+      if (S.openRef) openRefSheet();
+    });
   }
 
   /* 深链：?mode=pigment&hex=FF8800&sat=80&bright=80 —— 方便自测与截图 */
@@ -940,6 +1092,7 @@
       var vw = q.get('view');
       if (vw === 'image' || vw === 'wheel') S.viewParam = vw;
       if (q.get('demoimg') === '1') S.demoImg = true;
+      if (q.get('refsheet') === '1') S.openRef = true;
       if (q.get('demo') === '1') {
         S.items = [
           { id: 'c_1', name: '雾蓝', rgb: [87, 171, 255] },
@@ -948,7 +1101,12 @@
           { id: 'c_4', name: '米白', rgb: [235, 228, 212] }
         ];
         S.seq = 5;
-        S.refId = q.get('ref') || 'c_1';
+        var wanted = q.get('ref') || 'c_1';
+        var found = null;
+        for (var i = 0; i < S.items.length; i++) {
+          if (S.items[i].id === wanted) found = S.items[i];
+        }
+        if (found) S.ref = { rgb: found.rgb, name: found.name, id: found.id };
       }
     } catch (e) { /* 老浏览器忽略 */ }
   }
