@@ -380,3 +380,157 @@ summary {
   #wheel { width: min(74vw, 320px); height: min(74vw, 320px); }
   .sw { height: 44px; }
 }
+
+/* ---------------------------------------------------------------- 视图切换 */
+.tabs {
+  display: flex;
+  background: var(--panel);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 3px;
+  flex: 1;
+}
+
+.tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 6px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+
+.tab.on {
+  background: var(--panel2);
+  color: var(--fg);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset;
+}
+
+#panelWheel,
+#panelImage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#panelWheel[hidden],
+#panelImage[hidden] {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- 图片视图 */
+.imgtool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ghost-btn {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ghost-btn:active { transform: translateY(1px); }
+
+.ghost-btn.mini {
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.samples {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+  background: var(--panel);
+  border-radius: 9px;
+  padding: 3px;
+}
+
+.sm {
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.sm.on {
+  background: var(--panel2);
+  color: var(--fg);
+  font-weight: 700;
+}
+
+.img-stage {
+  position: relative;
+  background: #101216;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  padding: 0;
+}
+
+#imgcanvas {
+  width: 100%;
+  height: min(88vw, 400px);
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.imgbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.imgbar span { flex: 1; }
+
+.thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.thumbs:empty { display: none; }
+
+.thumb {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 11px;
+  background: none;
+  cursor: pointer;
+}
+
+.thumb.on { border-color: var(--accent); }
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  display: block;
+  object-fit: cover;
+}
+

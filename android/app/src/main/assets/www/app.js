@@ -752,12 +752,135 @@
     });
   }
 
+  /* ------------------------------------------------------- 视图切换 */
+  function setView(v) {
+    S.view = v === 'image' ? 'image' : 'wheel';
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (x) {
+      x.classList.toggle('on', x.dataset.view === S.view);
+    });
+    document.getElementById('panelWheel').hidden = S.view !== 'wheel';
+    document.getElementById('panelImage').hidden = S.view !== 'image';
+    if (S.view === 'image') {
+      /* 面板显示后才能量到真实宽高 */
+      requestAnimationFrame(function () { ImageView.resize(); });
+    } else {
+      requestDraw();
+    }
+  }
+
+  function bindViews() {
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
+      b.addEventListener('click', function () { setView(b.dataset.view); });
+    });
+  }
+
+  /* ------------------------------------------------------- 图片视图 */
+  function readFile(f) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { res(r.result); };
+      r.onerror = rej;
+      r.readAsDataURL(f);
+    });
+  }
+
+  function renderThumbs() {
+    var host = document.getElementById('thumbs');
+    host.innerHTML = '';
+    var items = ImageView.items;
+    for (var i = 0; i < items.length; i++) {
+      (function (idx) {
+        var b = document.createElement('button');
+        b.className = 'thumb' + (idx === ImageView.active ? ' on' : '');
+        var im = document.createElement('img');
+        im.src = items[idx].thumb;
+        im.alt = items[idx].name;
+        b.appendChild(im);
+        b.addEventListener('click', function () {
+          ImageView.setActive(idx);
+          renderThumbs();
+        });
+        host.appendChild(b);
+      })(i);
+    }
+  }
+
+  function bindImageView() {
+    ImageView.mount({
+      canvas: document.getElementById('imgcanvas'),
+      onPick: function (rgb) { setFromColor(rgb); refresh(); },
+      onChange: function () { renderThumbs(); },
+      onHint: function (t) { document.getElementById('imgHint').textContent = t; }
+    });
+
+    document.getElementById('importBtn').addEventListener('click', function () {
+      document.getElementById('fileInput').click();
+    });
+
+    var input = document.getElementById('fileInput');
+    input.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      input.value = '';
+      files.reduce(function (p, f) {
+        return p.then(function () {
+          return readFile(f).then(function (url) {
+            return ImageView.addDataUrl(url, f.name.replace(/\.[^.]+$/, ''));
+          }).catch(function () {
+            return null;
+          });
+        });
+      }, Promise.resolve()).then(renderThumbs);
+    });
+
+    document.getElementById('resetImg').addEventListener('click', function () {
+      ImageView.reset();
+    });
+
+    var samples = document.querySelectorAll('.sm');
+    Array.prototype.forEach.call(samples, function (b) {
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(samples, function (x) {
+          x.classList.toggle('on', x === b);
+        });
+        ImageView.setSample(Number(b.dataset.n));
+      });
+    });
+  }
+
+  /* 演示图片：?demoimg=1 时用，省得每次手动选文件 */
+  function demoImage() {
+    var c = document.createElement('canvas');
+    c.width = 900;
+    c.height = 600;
+    var g = c.getContext('2d');
+    var grd = g.createLinearGradient(0, 0, 900, 600);
+    grd.addColorStop(0, '#2b3a67');
+    grd.addColorStop(0.45, '#a8503f');
+    grd.addColorStop(1, '#6a8c54');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 900, 600);
+    var cols = ['#d94f3d', '#f2b134', '#4aa96c', '#3d7ed9', '#8e4ec6', '#e8e4d4', '#1b2430'];
+    for (var i = 0; i < cols.length; i++) {
+      g.fillStyle = cols[i];
+      g.fillRect(48 + i * 118, 430, 96, 96);
+    }
+    g.fillStyle = 'rgba(255,255,255,.92)';
+    g.font = '600 36px "Microsoft YaHei", sans-serif';
+    g.fillText('示例图片', 48, 92);
+    g.font = '22px "Microsoft YaHei", sans-serif';
+    g.fillStyle = 'rgba(255,255,255,.65)';
+    g.fillText('点按取色 · 长按放大镜', 48, 132);
+    return c.toDataURL('image/png');
+  }
+
   /* ------------------------------------------------------------ 启动 */
   function init() {
     restore();
     applyUrlParams();
+    bindViews();
     bindModes();
     bindSliders();
+    bindImageView();
 
     Array.prototype.forEach.call(document.querySelectorAll('.mode'), function (x) {
       x.classList.toggle('on', x.dataset.mode === S.mode);
@@ -783,6 +906,21 @@
 
     renderList();
     refresh();
+
+    /* 演示图片：放进图片视图后取一次色，便于自测与截图 */
+    if (S.demoImg) {
+      setView('image');
+      ImageView.addDataUrl(demoImage(), '示例图片').then(function () {
+        renderThumbs();
+        requestAnimationFrame(function () {
+          ImageView.resize();
+          ImageView.pickNorm(0.62, 0.78);
+        });
+      }).catch(function () { /* ignore */ });
+    } else {
+      setView(S.viewParam || 'wheel');
+    }
+
     /* 首次布局完成后再画，避免尺寸为 0 */
     requestAnimationFrame(function () { requestDraw(); });
   }
@@ -799,6 +937,9 @@
       if (br >= 0 && br <= 100 && q.get('bright') !== null) S.brightParam = br / 100;
       var sa = Number(q.get('sat'));
       if (sa >= 0 && sa <= 100 && q.get('sat') !== null) S.satParam = sa / 100;
+      var vw = q.get('view');
+      if (vw === 'image' || vw === 'wheel') S.viewParam = vw;
+      if (q.get('demoimg') === '1') S.demoImg = true;
       if (q.get('demo') === '1') {
         S.items = [
           { id: 'c_1', name: '雾蓝', rgb: [87, 171, 255] },

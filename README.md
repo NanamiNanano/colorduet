@@ -8,15 +8,16 @@
 
 - 空心色相环（光 / 颜料双模式，一键切换），只负责色相
 - 饱和度、明度两条独立滑杆，轨道颜色随选色实时变化
+- **导入图片取色**：多张图片、双指缩放、拖动平移、双击复位、点按取色、长按放大镜精调、1×1/3×3/5×5 取样
 - 点色卡设参照 → 环上出现空心圈与夹角弧线 → 徽标显示 `色相/明度/彩度/ΔE00`
 - 色卡：加入、改名、拖拽排序、删除并撤销
 - 自动记住上次状态（当前色、模式、色卡）
+- Android APK：`push` 到 `android/` 或 `colorpick/web/` 由 GitHub Actions 自动构建
 
 ## 还不能做什么（下一步）
 
-- 导入图片取像素色、缩放平移、长按放大镜精选取色
 - 项目存档到磁盘（现在只有浏览器 localStorage）
-- Android 打包
+- 图片在重启后保留（目前图片只在内存里，重新打开需要重新导入）
 
 ## 三种打开方式
 
@@ -51,7 +52,9 @@ node tests/check_color.js
 ```
 colorpick/
   __main__.py      本地服务（标准库 http.server，8766）
-  web/             前端：index.html / style.css / color.js / app.js
+  web/             前端：index.html / style.css / color.js / imageview.js / app.js
+android/
+  app/             WebView 壳（MainActivity.java）+ 固定签名 keystore
 docs/
   PRD-v1.0.md      产品需求（单一事实来源）
   设计方案-色彩模型与比较.md   双环模型的推导与实测数据

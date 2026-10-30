@@ -11,29 +11,63 @@
 <div id="app">
 
   <header>
-    <div class="modes">
-      <button class="mode on" id="modeLight" data-mode="light">光色环</button>
-      <button class="mode" id="modePigment" data-mode="pigment">颜料环</button>
+    <div class="tabs">
+      <button class="tab on" data-view="wheel">色环</button>
+      <button class="tab" data-view="image">图片</button>
     </div>
     <button class="icon-btn" id="helpBtn" title="说明">?</button>
   </header>
 
-  <div class="stage">
-    <canvas id="wheel"></canvas>
-  </div>
+  <!-- ---------------------------------------------------------- 色环 -->
+  <section id="panelWheel">
+    <div class="modes">
+      <button class="mode on" data-mode="light">光色环</button>
+      <button class="mode" data-mode="pigment">颜料环</button>
+    </div>
 
-  <div class="slider-row">
-    <label for="sat">饱和度</label>
-    <input type="range" id="sat" min="0" max="100" value="66">
-    <span id="satVal">66%</span>
-  </div>
+    <div class="stage">
+      <canvas id="wheel"></canvas>
+    </div>
 
-  <div class="slider-row">
-    <label for="bright">明度</label>
-    <input type="range" id="bright" min="0" max="100" value="100">
-    <span id="brightVal">100%</span>
-  </div>
+    <div class="slider-row">
+      <label for="sat">饱和度</label>
+      <input type="range" id="sat" min="0" max="100" value="66">
+      <span id="satVal">66%</span>
+    </div>
 
+    <div class="slider-row">
+      <label for="bright">明度</label>
+      <input type="range" id="bright" min="0" max="100" value="100">
+      <span id="brightVal">100%</span>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- 图片 -->
+  <section id="panelImage" hidden>
+    <div class="imgtool">
+      <button class="ghost-btn" id="importBtn">＋ 导入图片</button>
+      <div class="samples" id="samples">
+        <button class="sm on" data-n="1">1×1</button>
+        <button class="sm" data-n="3">3×3</button>
+        <button class="sm" data-n="5">5×5</button>
+      </div>
+    </div>
+
+    <div class="stage img-stage">
+      <canvas id="imgcanvas"></canvas>
+    </div>
+
+    <div class="imgbar">
+      <span id="imgHint">点击取色 · 长按放大镜 · 双指缩放 · 双击复位</span>
+      <button class="ghost-btn mini" id="resetImg">复位</button>
+    </div>
+
+    <div class="thumbs" id="thumbs"></div>
+
+    <input type="file" id="fileInput" accept="image/*" multiple hidden>
+  </section>
+
+  <!-- ---------------------------------------------------------- 读数 -->
   <section class="readout">
     <div class="swatches">
       <div class="sw" id="curSw"><span id="curHex">#000000</span></div>
@@ -50,15 +84,17 @@
     <button class="add-btn" id="addBtn">＋ 加入色卡</button>
   </section>
 
+  <!-- ---------------------------------------------------------- 色卡 -->
   <section class="palette">
     <h2><span>色卡</span><small>点色块设参照 · 拖动 ⠿ 排序 · 双击名字改名</small></h2>
     <ul id="list"></ul>
-    <div class="empty-tip" id="emptyTip">还没有颜色。在环上选一个，然后点「加入色卡」。</div>
+    <div class="empty-tip" id="emptyTip">还没有颜色。在环上选一个，或从图片取一个，然后点「加入色卡」。</div>
   </section>
 
 </div>
 
 <script src="color.js"></script>
+<script src="imageview.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
