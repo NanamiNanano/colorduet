@@ -1092,8 +1092,36 @@
     });
 
     document.getElementById('importBtn').addEventListener('click', function () {
+      /* 安卓端走原生选图，绕开 WebView 的 <input type=file> 差异 */
+      if (window.AndroidPick) {
+        toast('正在读取图片…');
+        try {
+          window.AndroidPick.pick();
+        } catch (e) {
+          toast('调不起系统相册');
+        }
+        return;
+      }
       document.getElementById('fileInput').click();
     });
+
+    /* 原生选图回传（MainActivity 里 evaluateJavascript 调过来） */
+    window.AndroidPickResult = function (list) {
+      if (!list || !list.length) return;
+      var p = Promise.resolve();
+      list.forEach(function (item) {
+        p = p.then(function () {
+          return ImageView.addDataUrl(item.dataUrl, item.name).catch(function () {
+            return null;
+          });
+        });
+      });
+      p.then(function () {
+        renderThumbs();
+        ImageView.resize();
+        toast('已导入 ' + list.length + ' 张');
+      });
+    };
 
     var input = document.getElementById('fileInput');
     input.addEventListener('change', function () {
