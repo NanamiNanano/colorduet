@@ -164,11 +164,13 @@
     var rc = refRgb();
     if (rc) {
       var rAng = ringAngleOf(rc);
-      var d2 = CP.hueDelta(rAng, S.hue);       /* 参照 → 当前，取最短方向 */
+      /* hueDelta(ref, cur) 是「当前 → 参照」的有向差，取反才是「参照 → 当前」 */
+      var sweep = -CP.hueDelta(rAng, S.hue);      /* -180..180，正数 = 色相递增方向 */
+      var a0 = -rAng * Math.PI / 180;             /* 画布角 = -色相角 */
+      var a1 = -(rAng + sweep) * Math.PI / 180;
 
       ctx.beginPath();
-      ctx.arc(half, half, half * (RING_IN - 0.02),
-        -rAng * Math.PI / 180, -(rAng + d2) * Math.PI / 180, d2 > 0);
+      ctx.arc(half, half, half * (RING_IN - 0.02), a0, a1, sweep > 0);
       ctx.strokeStyle = 'rgba(255,255,255,.5)';
       ctx.lineWidth = 2.5 * k;
       ctx.stroke();
