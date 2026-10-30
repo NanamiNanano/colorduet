@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 生成物（重新生成：python tools/build_single.py / csc tools/launcher.cs）
+双环取色.html
+双环取色.exe
+dist/
+
+# 运行时数据（将来 Python 落盘的项目、图片、备份）
+data/
+*.sqlite3
+*.log
+
+# Android / 打包
+.buildozer/
+bin/
+.gradle/
+android/app/build/
+android/build/
+local.properties
+*.apk
+*.aab
+
+# 临时截图（preview 下的正式图要提交）
+preview/_*.png
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 注：签名用的 *.jks 将来要提交（固定签名 = 覆盖安装不丢数据），
+#     仓库仅本地保存时风险可控；将来若推 GitHub，改用 Secrets。

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181c">
+<title>双环取色</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="modes">
+      <button class="mode on" id="modeLight" data-mode="light">光色环</button>
+      <button class="mode" id="modePigment" data-mode="pigment">颜料环</button>
+    </div>
+    <button class="icon-btn" id="helpBtn" title="说明">?</button>
+  </header>
+
+  <div class="stage">
+    <canvas id="wheel"></canvas>
+  </div>
+
+  <div class="slider-row">
+    <label for="sat">饱和度</label>
+    <input type="range" id="sat" min="0" max="100" value="66">
+    <span id="satVal">66%</span>
+  </div>
+
+  <div class="slider-row">
+    <label for="bright">明度</label>
+    <input type="range" id="bright" min="0" max="100" value="100">
+    <span id="brightVal">100%</span>
+  </div>
+
+  <section class="readout">
+    <div class="swatches">
+      <div class="sw" id="curSw"><span id="curHex">#000000</span></div>
+      <div class="sw empty" id="refSw"><span id="refHex">未设参照</span></div>
+    </div>
+    <div class="badges" id="badges"></div>
+    <div class="hint" id="hint"></div>
+
+    <details id="detailBox">
+      <summary>数值详情</summary>
+      <div class="kv" id="kv"></div>
+    </details>
+
+    <button class="add-btn" id="addBtn">＋ 加入色卡</button>
+  </section>
+
+  <section class="palette">
+    <h2><span>色卡</span><small>点色块设参照 · 拖动 ⠿ 排序 · 双击名字改名</small></h2>
+    <ul id="list"></ul>
+    <div class="empty-tip" id="emptyTip">还没有颜色。在环上选一个，然后点「加入色卡」。</div>
+  </section>
+
+</div>
+
+<script src="color.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
