@@ -559,6 +559,11 @@
     draw();
   }
 
+  /* 按当前取样范围取某个图片坐标的颜色（改取样尺寸后用它立刻重算） */
+  function sampleAt(x, y) {
+    return sampleColor(x, y, st.sample);
+  }
+
   function reset() {
     var it = cur();
     if (!it) return;
@@ -595,6 +600,7 @@
     setSample: setSample,
     setLoupeMode: setLoupeMode,
     setMarks: setMarks,
+    sampleAt: sampleAt,
     snapshot: snapshot,
     clear: clear,
     reset: reset,

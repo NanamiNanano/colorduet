@@ -1148,13 +1148,34 @@
       loupeBtn.classList.toggle('on', on);
     });
 
+    var SAMPLE_TIP = {
+      1: '1×1 · 只取落点那一个像素',
+      3: '3×3 · 取周围 9 个像素的平均',
+      5: '5×5 · 取周围 25 个像素的平均'
+    };
+
     var samples = document.querySelectorAll('.sm');
     Array.prototype.forEach.call(samples, function (b) {
       b.addEventListener('click', function () {
+        var n = Number(b.dataset.n);
         Array.prototype.forEach.call(samples, function (x) {
           x.classList.toggle('on', x === b);
         });
-        ImageView.setSample(Number(b.dataset.n));
+        ImageView.setSample(n);
+
+        /* 立刻按新范围重算当前色，否则按下去看不出任何变化 */
+        var lp = S.lastPick;
+        if (lp && lp.img === ImageView.activeId) {
+          var c = ImageView.sampleAt(lp.x, lp.y);
+          if (c) {
+            setFromColor(c);
+            S.lastPick.rgb = CP.rgb255(c);
+            refresh();
+            toast(SAMPLE_TIP[n]);
+            return;
+          }
+        }
+        toast(SAMPLE_TIP[n]);
       });
     });
   }
