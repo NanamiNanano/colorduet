@@ -18,10 +18,13 @@
   var TAP_MOVE = 8;           // 超过这个位移就不算点击
 
   var st = {
-    items: [],                // {img, name, thumb, iw, ih, view:{s,ox,oy}, pick}
+    items: [],                // {id, img, name, thumb, iw, ih, view:{s,ox,oy}}
     active: -1,
-    sample: 1
+    sample: 1,
+    marks: [],                // 由外部传入：色卡里记录下来的取色点
+    flash: null               // 刚点一下的短暂反馈
   };
+  var imgSeq = 0;
 
   var canvas = null, ctx = null, opts = {};
   var scratch = null, sctx = null;   // 取色用的离屏画布（当前图）
@@ -117,10 +120,23 @@
   function pickAt(ix, iy, silent) {
     var c = sampleColor(ix, iy, st.sample);
     if (!c) return;
-    if (opts.onPick) opts.onPick(c);
+    var it = cur();
+    if (opts.onPick) opts.onPick(c, { img: it.id, x: ix, y: iy });
     if (!silent) {
-      /* 只保留最近一次的落点，不累积 */
-      cur().pick = { x: ix, y: iy };
+      st.flash = { x: ix, y: iy, t: Date.now() };
+      animateFlash();
+    }
+  }
+
+  /* 点击处的短暂反馈：一圈淡出的白环，不留在图上 */
+  function animateFlash() {
+    if (!st.flash) return;
+    draw();
+    var left = 520 - (Date.now() - st.flash.t);
+    if (left > 0) {
+      setTimeout(animateFlash, 60);
+    } else {
+      st.flash = null;
       draw();
     }
   }
@@ -148,16 +164,36 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(it.img, v.ox, v.oy, it.iw * v.s, it.ih * v.s);
 
-    /* 最近一次取色的落点 */
-    if (it.pick) {
-      var pcx = v.ox + it.pick.x * v.s, pcy = v.oy + it.pick.y * v.s;
+    /* 色卡里记录的取色点 */
+    if (st.marks && st.marks.length) {
+      for (var mi = 0; mi < st.marks.length; mi++) {
+        var mk = st.marks[mi];
+        var mx = v.ox + mk.x * v.s, my = v.oy + mk.y * v.s;
+        ctx.beginPath();
+        ctx.arc(mx, my, 7, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0,0,0,.6)';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,.95)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        if (mk.color) {
+          ctx.beginPath();
+          ctx.arc(mx, my, 3, 0, Math.PI * 2);
+          ctx.fillStyle = mk.color;
+          ctx.fill();
+        }
+      }
+    }
+
+    /* 刚点一下的反馈环（会自己消失） */
+    if (st.flash) {
+      var fx = v.ox + st.flash.x * v.s, fy = v.oy + st.flash.y * v.s;
+      var k2 = Math.min(1, (Date.now() - st.flash.t) / 520);
       ctx.beginPath();
-      ctx.arc(pcx, pcy, 6, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0,0,0,.55)';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,.95)';
-      ctx.lineWidth = 1.8;
+      ctx.arc(fx, fy, 8 + k2 * 12, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * (1 - k2)).toFixed(3) + ')';
+      ctx.lineWidth = 2.5;
       ctx.stroke();
     }
 
@@ -401,9 +437,10 @@
       img.onload = function () {
         var dim = prepareScratch(img);
         st.items.push({
+          id: 'img_' + (++imgSeq),
           img: img, name: name || ('图片 ' + (st.items.length + 1)),
           thumb: makeThumb(img), iw: dim.iw, ih: dim.ih,
-          view: { s: 1, ox: 0, oy: 0 }, pick: null
+          view: { s: 1, ox: 0, oy: 0 }
         });
         st.active = st.items.length - 1;
         var it = cur();
@@ -435,6 +472,12 @@
 
   function setSample(n) {
     st.sample = n;
+    draw();
+  }
+
+  /* 外部（app.js）根据色卡给它要显示的取色点 */
+  function setMarks(arr) {
+    st.marks = arr || [];
     draw();
   }
 
@@ -472,11 +515,13 @@
     addDataUrl: addDataUrl,
     setActive: setActive,
     setSample: setSample,
+    setMarks: setMarks,
     reset: reset,
     resize: resize,
     pickNorm: pickNorm,
     get items() { return st.items; },
     get active() { return st.active; },
+    get activeId() { var it = cur(); return it ? it.id : null; },
     get count() { return st.items.length; }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

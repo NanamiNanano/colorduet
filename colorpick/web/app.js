@@ -318,14 +318,6 @@
     /* 总差 */
     var vt = vTotal(m.dE);
     box.appendChild(chip(vt, 'ΔE ' + m.dE.toFixed(1) + ' ' + SYM[vt]));
-
-    /* 说明 */
-    var hueBad = (m.dH !== null && Math.abs(m.dH) > 10);
-    if (!hueBad && vt === 'bad') {
-      hint.textContent = '色相接近，但整体差异明显 —— 多半是明度或彩度差太多。';
-    } else if (hueBad && vt === 'ok') {
-      hint.textContent = '色相角差看起来大，但肉眼接近 —— HSV 在这个色区比较敏感。';
-    }
   }
 
   function fmtDeg(d) {
@@ -646,6 +638,13 @@
       name: '颜色 ' + S.items.length,
       rgb: rgb
     };
+    /* 只有"当前这个颜色确实就是从当前这张图的那个点取的"，才记下出处。
+       之后在图上画的小圈就由这条记录决定，删色卡即消失。 */
+    var lp = S.lastPick;
+    if (lp && lp.img === ImageView.activeId &&
+      lp.rgb[0] === rgb[0] && lp.rgb[1] === rgb[1] && lp.rgb[2] === rgb[2]) {
+      item.src = { img: lp.img, x: Math.round(lp.x), y: Math.round(lp.y) };
+    }
     S.items.push(item);
     persist();
     renderList();
@@ -739,6 +738,7 @@
     requestDraw();
     renderReadout();
     renderCompare();
+    syncMarks();
     var list = document.getElementById('list');
     /* 只更新 meta 文案，避免整表重建导致输入框失焦 */
     Array.prototype.forEach.call(list.children, function (li) {
@@ -784,6 +784,25 @@
       document.getElementById('brightVal').textContent = briEl.value + '%';
       refresh();
     });
+  }
+
+  /* 只把"属于当前这张图"的色卡标记交给 ImageView 画 */
+  function syncMarks() {
+    if (!window.ImageView) return;
+    var activeId = ImageView.activeId;
+    var marks = [];
+    if (activeId) {
+      for (var i = 0; i < S.items.length; i++) {
+        var it = S.items[i];
+        if (it.src && it.src.img === activeId) {
+          marks.push({
+            x: it.src.x, y: it.src.y,
+            color: CP.hex({ r: it.rgb[0] / 255, g: it.rgb[1] / 255, b: it.rgb[2] / 255 })
+          });
+        }
+      }
+    }
+    ImageView.setMarks(marks);
   }
 
   /* ------------------------------------------------------- 视图切换 */
@@ -842,8 +861,19 @@
   function bindImageView() {
     ImageView.mount({
       canvas: document.getElementById('imgcanvas'),
-      onPick: function (rgb) { setFromColor(rgb); refresh(); },
-      onChange: function () { renderThumbs(); },
+      onPick: function (rgb, pos) {
+        setFromColor(rgb);
+        /* 记住"这个颜色是从哪张图的哪个点取的"，加入色卡时一并存下来 */
+        S.lastPick = {
+          img: pos.img, x: pos.x, y: pos.y,
+          rgb: CP.rgb255(rgb)
+        };
+        refresh();
+      },
+      onChange: function () {
+        renderThumbs();
+        syncMarks();
+      },
       onHint: function (t) { document.getElementById('imgHint').textContent = t; }
     });
 
