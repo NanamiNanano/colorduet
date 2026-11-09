@@ -12,7 +12,7 @@ on:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -37,49 +37,74 @@ jobs:
       - name: Sync web assets into APK
         run: python3 tools/sync_assets.py
 
-      # 不用 gradle/actions/setup-gradle：它要去 services.gradle.org 拉发行包，
-      # 这一步反复 504，整个流水线在编译之前就失败。
-      # 改成自己下载（重试 + 备用源 + 缓存）；runner 自带的 Gradle 9.8.2
-      # 与 AGP 8.7.3 不兼容，不能直接用。
+      # ────────────────────────────────────────────────────────────────
+      # 下载 Gradle 发行包这条路反复吃 504（services.gradle.org 与
+      # downloads.gradle.org 都不通，但 Gradle 官方状态页显示正常），
+      # 判断是 runner 出网被中间层拦了。
+      #
+      # 所以先试 runner 自带的 Gradle（免下载），只有它编译不过才回落
+      # 到自己下载 8.9。两条路一次跑完，避免来回试。
+      # ────────────────────────────────────────────────────────────────
+
+      - name: Try build with preinstalled Gradle
+        id: system_gradle
+        continue-on-error: true
+        run: |
+          gradle --version
+          gradle -p android assembleDebug --no-daemon --stacktrace
+
+      - name: Clean after failed attempt
+        if: steps.system_gradle.outcome == 'failure'
+        run: rm -rf android/.gradle android/app/build android/build
+
       - name: Cache Gradle 8.9
+        if: steps.system_gradle.outcome == 'failure'
         uses: actions/cache@v4
         with:
           path: '~/gradle-8.9'
-          key: gradle-8.9-bin-v1
+          key: gradle-8.9-bin-v2
 
       - name: Install Gradle 8.9
+        if: steps.system_gradle.outcome == 'failure'
         run: |
           set -euo pipefail
-          GRADLE_BIN="$HOME/gradle-8.9/bin/gradle"
-          if [ -x "$GRADLE_BIN" ]; then
+          if [ -x "$HOME/gradle-8.9/bin/gradle" ]; then
             echo "Gradle 8.9 already cached, skip download"
-          else
-            ok=0
-            for url in \
-              "https://downloads.gradle.org/distributions/gradle-8.9-bin.zip" \
-              "https://services.gradle.org/distributions/gradle-8.9-bin.zip"
-            do
-              echo "trying $url"
-              if curl -fL --retry 5 --retry-delay 5 --retry-all-errors \
-                    --connect-timeout 20 --max-time 600 \
-                    -o /tmp/gradle-8.9-bin.zip "$url"; then
-                unzip -q -o /tmp/gradle-8.9-bin.zip -d "$HOME"
+            echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
+            exit 0
+          fi
+
+          ok=0
+          for url in \
+            "https://downloads.gradle.org/distributions/gradle-8.9-bin.zip" \
+            "https://services.gradle.org/distributions/gradle-8.9-bin.zip" \
+            "https://downloads.gradle-dn.com/distributions/gradle-8.9-bin.zip" \
+            "https://mirrors.huaweicloud.com/gradle/gradle-8.9-bin.zip" \
+            "https://mirrors.cloud.tencent.com/gradle/gradle-8.9-bin.zip"
+          do
+            echo "trying $url"
+            if curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors \
+                  --connect-timeout 20 --max-time 600 \
+                  -o /tmp/gradle-bin.zip "$url"; then
+              if unzip -q -o /tmp/gradle-bin.zip -d "$HOME" 2>/dev/null \
+                  && [ -x "$HOME/gradle-8.9/bin/gradle" ]; then
                 ok=1
                 break
               fi
-              echo "that source failed, trying next"
-            done
-            if [ "$ok" != "1" ]; then
-              echo "::error::could not download Gradle 8.9 from any source"
-              exit 1
+              echo "downloaded file is not a valid Gradle distribution"
+              rm -rf "$HOME/gradle-8.9"
             fi
+            echo "that source failed, trying next"
+          done
+
+          if [ "$ok" != "1" ]; then
+            echo "::error::所有源都拿不到 Gradle 8.9"
+            exit 1
           fi
           echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
 
-      - name: Show Gradle version
-        run: gradle --version
-
-      - name: Build debug APK
+      - name: Build with Gradle 8.9 (fallback)
+        if: steps.system_gradle.outcome == 'failure'
         run: gradle -p android assembleDebug --no-daemon --stacktrace
 
       - name: Show APK
